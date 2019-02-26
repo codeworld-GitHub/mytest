@@ -1,0 +1,111 @@
+'新增商品库 流程图
+@startuml
+start
+:登录boss 进入商品-商品库;
+:新增商品库商品;
+repeat
+:填写商品库商品信息;
+:点击保存;
+repeat while(参数校验) is (不通过)
+if(验证商品库相关基础数据) then (不通过)
+stop
+else (通过)
+endif
+:保存商品spu信息、图片、商品库属性;
+if(是否多规格) then (是)
+:新增sku规格、规格值、SKU与规格明细值的关联;
+else (不是)
+endif
+stop
+@enduml
+
+'新增商品库 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :发起新增商品库请求
+controller -> provider  :调用商品库新增\nstandardGoodsProvider.add
+provider -> service     :调用商品库新增\nstandardGoodsService.add
+service -> service      :验证商品库相关基础数据\nthis.checkBasic()
+service -> repository   :依次调用保存商品库spu、图片、商品库属性\nstandardGoodsRepository.save\nstandardImageRepository.save\nstandardPropDetailRelRepository.save
+database db
+repository -> db        :调用保存方法
+db --> repository       :返回保存的对象
+repository --> service  :返回保存的对象
+service -> repository   :如果是多规格依次调用方法保存规格、规格值\nstandardSpecRepository.save\nstandardSpecDetailRepository.save
+repository -> db        :调用保存方法
+db --> repository       :返回保存的对象
+repository --> service  :返回保存的对象
+service -> repository   :保存商品sku信息调用\nstandardSkuRepository.save
+repository -> db        :调用保存方法
+db --> repository       :返回保存的对象
+repository --> service  :返回保存的对象
+service -> repository   :如果是多规格调用方法保存SKU与规格明细值的关联\n standardSkuSpecDetailRelRepository.save
+repository -> db        :调用保存方法
+db --> repository       :返回保存的对象
+repository --> service  :返回保存的对象
+service --> provider    :返回新增商品库Id
+provider --> controller :返回结果
+controller --> react    :返回结果
+@enduml
+
+'新增商品库 类图
+@startuml
+class StandardController{
+    -StandardGoodsProvider standardGoodsProvider
+    +BaseResponse add(StandardGoodsAddRequest addRequest)
+}
+StandardController *-- StandardGoodsProvider
+interface StandardGoodsProvider{
+    +BaseResponse add(StandardGoodsAddRequest request)
+}
+StandardGoodsProvider ..|> StandardGoodsController
+class StandardGoodsController {
+    -StandardGoodsService standardGoodsService
+    +BaseResponse add(StandardGoodsAddRequest request)
+}
+StandardGoodsController *- StandardGoodsService
+class StandardGoodsService{
+    -StandardGoodsRepository standardGoodsRepository
+    -StandardImageRepository standardImageRepository
+    -StandardPropDetailRelRepository standardPropDetailRelRepository
+    -StandardSpecRepository standardSpecRepository
+    -StandardSpecDetailRepository standardSpecDetailRepository
+    -StandardSkuRepository standardSkuRepository
+    -StandardSkuSpecDetailRelRepository standardSkuSpecDetailRelRepository
+    +String add(StandardSaveRequest saveRequest)
+}
+
+'上面三个
+StandardGoodsRepository --* StandardGoodsService
+StandardImageRepository --* StandardGoodsService
+StandardPropDetailRelRepository --* StandardGoodsService
+'右边一个
+StandardGoodsService *- StandardSpecRepository
+'下面三个
+StandardGoodsService *-- StandardSpecDetailRepository
+StandardGoodsService *-- StandardSkuRepository
+StandardGoodsService *-- StandardSkuSpecDetailRelRepository
+
+interface StandardGoodsRepository{
+    +<S extends T> S save(S entity)
+}
+interface StandardImageRepository{
+    +<S extends T> S save(S entity)
+}
+interface StandardPropDetailRelRepository{
+    +<S extends T> S save(S entity)
+}
+interface StandardSpecRepository{
+    +<S extends T> S save(S entity)
+}
+interface StandardSpecDetailRepository{
+    +<S extends T> S save(S entity)
+}
+interface StandardSkuRepository{
+    +<S extends T> S save(S entity)
+}
+interface StandardSkuSpecDetailRelRepository{
+    +<S extends T> S save(S entity)
+}
+@enduml

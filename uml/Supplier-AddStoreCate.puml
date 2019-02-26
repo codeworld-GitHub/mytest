@@ -1,0 +1,121 @@
+'新增商品店铺分类 流程图
+@startuml
+start
+:登录Supplier 进入商品-店铺分类;
+:点击[新增一级分类]\[添加子分类];
+repeat
+    :填写参数;
+repeat while(参数校验) is (不通过)
+:点击确定;
+if(参数校验?) then (不通过)
+    :设置默认值;
+else(通过)
+endif
+:保存成功 数据入库;
+:ares埋点;
+if(父分类是否关联优惠券?) then (关联)
+    :批量新增优惠券商品作用范围;
+else(不关联)
+endif
+stop
+@enduml
+
+'新增商品店铺分类 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :请求添加店铺分类
+controller -> provider  :新增商品店铺分类\nstoreCateProvider.add
+provider -> service     :新增商品店铺分类\nstoreCateService.add
+activate service
+    service -> service      :参数校验\n并设置默认值
+    service -> repository   :保存商品店铺分类信息\nstoreCateRepository.save
+    database db
+    repository -> db        :保存数据入库
+    db --> repository       :返回保存的对象
+    repository --> service  :返回保存的对象
+    service --> provider    :返回封装结果
+    provider --> controller :返回封装结果
+deactivate service
+controller -> provider  :(如果父分类是否关联优惠券)\n批量新增优惠券商品作用范围\ncouponMarketingScopeProvider.batchAdd
+provider -> service     :批量新增优惠券商品作用范围\ncouponMarketingScopeService\n.addBatchCouponMarketingScope
+service -> repository   :couponMarketingScopeRepository.save
+repository -> db        :保存数据入库
+db --> repository       :返回保存的对象
+repository --> service  :返回结果
+service --> provider    :返回结果
+provider --> controller :返回结果
+controller --> react    :返回结果
+@enduml
+
+'新增商品店铺分类 类图
+@startuml
+class StoreCateController{
+    -CommonUtil commonUtil
+    -StoreCateProvider storeCateProvider
+    -CouponMarketingScopeProvider couponMarketingScopeProvider
+    -CouponMarketingScopeQueryProvider couponMarketingScopeQueryProvider
+    +BaseResponse<StoreCateResponseVO> add(@StoreCateAddRequest saveRequest)
+}
+CommonUtil -* StoreCateController
+StoreCateController *-- StoreCateProvider
+StoreCateController *-- CouponMarketingScopeProvider
+StoreCateController *-- CouponMarketingScopeQueryProvider
+
+class CommonUtil{
+}
+interface StoreCateProvider{
+    +BaseResponse<StoreCateAddResponse> add(StoreCateAddRequest storeCateAddRequest)
+}
+interface CouponMarketingScopeProvider{
+    +BaseResponse batchAdd(CouponMarketingScopeBatchAddRequest request)
+}
+interface CouponMarketingScopeQueryProvider{
+    +BaseResponse<CouponMarketingScopeByScopeIdResponse> listByScopeId(CouponMarketingScopeByScopeIdRequest request)
+}
+
+class StoreCateController1 implements StoreCateProvider {
+    -StoreCateService storeCateService
+    +BaseResponse<StoreCateAddResponse> add(StoreCateAddRequest storeCateAddRequest)
+}
+StoreCateController1 *-- StoreCateService
+class StoreCateService{
+    -StoreCateRepository storeCateRepository
+    +GoodsAresService goodsAresService
+    +StoreCateResponse add(StoreCateAddRequest saveRequest)
+}
+StoreCateService *-- StoreCateRepository
+StoreCateService *-- GoodsAresService
+interface StoreCateRepository{
+    +<S extends T> S save(S entity)
+    +StoreCate findTop1ByCateParentIdOrderBySortDesc(Long cateParentId)
+}
+class GoodsAresService{
+    +JmsTemplate jmsTemplate
+    +void dispatchFunction(String funcType, Object... objs)
+}
+
+class CouponMarketingScopeQueryController implements CouponMarketingScopeQueryProvider {
+    -CouponMarketingScopeService couponMarketingScopeService
+    +BaseResponse<CouponMarketingScopeByScopeIdResponse> listByScopeId(CouponMarketingScopeByScopeIdRequest request)
+}
+CouponMarketingScopeQueryController *-- CouponMarketingScopeService
+class CouponMarketingScopeService {
+    -CouponMarketingScopeRepository couponMarketingScopeRepository
+    +List<CouponMarketingScope> listScopeByScopeId(String scopeId)
+    +void addBatchCouponMarketingScope(List<CouponMarketingScope> couponMarketingScopes)
+}
+CouponMarketingScopeService *-- CouponMarketingScopeRepository
+interface CouponMarketingScopeRepository{
+    +<S extends T> List save(Iterable entities)
+    +List<CouponMarketingScope> findByScopeId(String scopeId)
+}
+
+class CouponMarketingScopeController implements CouponMarketingScopeProvider {
+    -CouponMarketingScopeService couponMarketingScopeService
+    +BaseResponse batchAdd(CouponMarketingScopeBatchAddRequest request)
+}
+CouponMarketingScopeController *-- CouponMarketingScopeService
+
+
+@enduml

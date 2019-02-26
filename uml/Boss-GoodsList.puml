@@ -1,0 +1,186 @@
+'商品列表 流程图
+@startuml
+start
+:登录boss 进入商品-商品列表;
+if(初始化?) then (no)
+    :填写请求条件点击搜索;
+else(yes)
+endif
+:设置默认查询条件，删除标记为0未删除\n创建时间倒叙，商品id正序;
+if(存在sku编码模糊条件?) then (yes)
+    :根据sku编码模糊条件获取sku编码;
+    if(查询结果为空?) then (yes)
+        stop
+    else(no)
+        :设置正确sku编码;
+    endif
+else (no)
+endif
+
+if(商品分类Id为空) then (no)
+    :查询该分类的所有子分类;
+    if(子分类不为空？) then (yes)
+        :设置查询条件批量分类;
+    else (no)
+    endif
+else(yes)
+endif
+(A)
+note right: 连接符A
+@enduml
+
+'商品列表 流程图 连接图
+@startuml
+(A)
+note left: 连接符A
+:根据条件查询所有商品;
+if(商品为空?) then (no)
+    :查询所有SKU;
+    :查询所有SKU规格值关联;
+    :填充每个SKU的规格关系\n填充每个SKU的SKU关系\n获取所有品牌、获取所有分类;
+else (yes)
+endif
+:返回查询结果;
+if(结果为空?) then (no)
+    :列出已导入商品库的商品编号;
+else(yes)
+endif
+stop
+@enduml
+
+
+'商品列表 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :页面发起查询商品请求
+controller -> controller:设置默认查询条件，\n删除标记为0未删除\n创建时间倒叙\n商品id正序
+controller -> provider  :调用分页查询商品信息\ngoodsQueryProvider.page
+provider -> service     :调用分页查询商品信息\ngoodsService.page
+
+'获取真实的SKU编码
+
+service -> repository   :根据模糊SKU(不空)查询准确SKU编码\ngoodsInfoRepository.findAll
+database db
+repository -> db        :查询数据
+db --> repository       :返回查询结果
+repository --> service  :返回查询结果
+alt 结果为空
+    service --> provider    :(结果为空)返回结果
+    provider --> controller :返回结果
+end
+service -> service      :(结果不为空)查询条件中设置SKU编码
+
+'获取该分类所有子分类
+service -> service      :根据分类ID(不为空)查询分类信息\ngoodsCateService.getChlidCateId
+service -> repository   :根据分类ID查询分类信息\ngoodsCateRepository.findOne
+repository -> db        :查询数据
+db --> repository       :返回查询结果
+repository --> service  :返回查询结果
+service --> service     :(结果为空)返回所有子分类(空集合)
+service -> repository   :(结果不为空)查询所有子分类
+repository -> db        :查询数据
+db --> repository       :返回查询结果
+repository --> service  :返回查询结果
+service --> service     :返回所有子分类\n设置查询条件所有子分类
+
+service -> repository   :查询所有商品
+repository -> db        :查询数据
+db --> repository       :返回查询结果
+repository --> service  :返回查询结果
+service -> repository   :依次查询所有SKUgoodsInfoRepository.findAll\n查询所有SKU规格值关联\ngoodsInfoSpecDetailRelRepository.findByGoodsIds\n填充每个SKU的规格关系\n获取所有品牌goodsBrandRepository.findAll\n获取所有分类goodsCateRepository.findAll
+repository -> db        :查询数据
+db --> repository       :返回查询结果
+repository --> service  :返回查询结果
+service -> service      :填充每个SKU的SKU关系
+service --> provider    :返回查询结果
+provider --> controller :返回查询结果
+controller -> provider  :(结果不为空)查询导入商品调用\nstandardGoodsQueryProvider.getUsedGoods
+provider -> service     :查询导入商品调用\nstandardGoodsService.getUsedGoods
+service -> repository   :查询导入商品调用\nstandardGoodsRelRepository.findByGoodsIds
+repository -> db        :查询数据
+db --> repository       :返回查询结果
+repository --> service  :返回查询结果
+service --> provider    :返回查询结果
+provider --> controller :返回查询结果
+controller --> react    :返回封装结果
+@enduml
+
+'商品列表 类图
+@startuml
+class BossGoodsController{
+    -GoodsQueryProvider goodsQueryProvider
+    -StandardGoodsQueryProvider standardGoodsQueryProvider
+    +BaseResponse<GoodsPageResponse> list(GoodsPageRequest pageRequest)
+}
+BossGoodsController *- GoodsQueryProvider
+BossGoodsController *-- StandardGoodsQueryProvider
+
+interface GoodsQueryProvider{
+    +BaseResponse<GoodsPageResponse> page(@RequestBody @Valid GoodsPageRequest request)
+}
+interface StandardGoodsQueryProvider{
+    +BaseResponse<StandardGoodsGetUsedGoodsResponse> getUsedGoods(StandardGoodsGetUsedGoodsRequest request)
+}
+
+class GoodsQueryController implements GoodsQueryProvider {
+    -GoodsService goodsService
+    +BaseResponse<GoodsPageResponse> page(@RequestBody @Valid GoodsPageRequest request)
+}
+GoodsQueryController *-- GoodsService
+class GoodsService{
+    -GoodsInfoRepository goodsInfoRepository
+    -GoodsRepository goodsRepository
+    -GoodsInfoSpecDetailRelRepository goodsInfoSpecDetailRelRepository
+    -GoodsBrandRepository goodsBrandRepository
+    -GoodsCateRepository goodsCateRepository
+    -GoodsCateService goodsCateService
+    +GoodsQueryResponse page(GoodsQueryRequest request)
+}
+
+GoodsRepository -* GoodsService
+GoodsInfoSpecDetailRelRepository --* GoodsService
+GoodsService *-- GoodsCateService
+GoodsService *-- GoodsInfoRepository
+GoodsService *- GoodsBrandRepository
+GoodsService *- GoodsCateRepository
+
+interface GoodsInfoRepository{
+    +List<T> findAll(Specification<T> spec)
+}
+interface GoodsRepository{
+    +Page<T> findAll(Specification<T> spec, Pageable pageable)
+}
+interface GoodsInfoSpecDetailRelRepository{
+    +List<GoodsInfoSpecDetailRel> findByGoodsIds(List<String> goodsIds)
+}
+interface GoodsBrandRepository{
+    +List<T> findAll(Specification<T> spec)
+}
+interface GoodsCateRepository{
+    +List<T> findAll(Specification<T> spec)
+}
+class GoodsCateService{
+    -GoodsCateRepository goodsCateRepository
+    +List<Long> getChlidCateId(Long goodCateId)
+}
+GoodsCateService *- GoodsCateRepository
+interface GoodsCateRepository{
+    +T findOne(ID id)
+    +List<T> findAll(Specification<T> spec)
+}
+
+class StandardGoodsQueryController implements StandardGoodsQueryProvider{
+    -StandardGoodsService standardGoodsService
+    +BaseResponse<StandardGoodsGetUsedGoodsResponse> getUsedGoods(StandardGoodsGetUsedGoodsRequest request)
+}
+StandardGoodsQueryController *-- StandardGoodsService
+class StandardGoodsService{
+    -StandardGoodsRelRepository standardGoodsRelRepository
+    +List<String> getUsedGoods(List<String> goodsIds)
+}
+StandardGoodsService *- StandardGoodsRelRepository
+interface StandardGoodsRelRepository{
+    +List<StandardGoodsRel> findByGoodsIds(List<String> goodsIds)
+}
+@enduml

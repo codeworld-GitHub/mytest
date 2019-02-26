@@ -1,0 +1,207 @@
+'商品详情 流程图 A
+@startuml
+:登录PC系统;
+:登录PC系统;
+:搜索类型选择商品\n输入或不输入内容;
+:点击搜索到达搜索列表\n点击一个商品进入商品详情;
+:根据skuid查询商品sku;
+if(sku商品正常?) then (no)
+    :抛出异常;
+    stop
+else(yes)
+endif
+:查询商品视图信息;
+(A)
+note right:连接符A
+detach
+(B)
+note left:连接符B
+if(查询成功) then (yes)
+    :计算区间价;
+    :计算营销价;
+else(no)
+endif
+stop
+@enduml
+
+'商品详情 流程图B
+@startuml
+(A)
+note left:连接符A
+if(商品存在) then (no)
+    :抛出异常;
+    stop
+else(yes)
+endif
+:查询商品图片，SKU列表，商品属性;
+if(多规格?) then (yes)
+    :设置规格规格值以及关系;
+else(no)
+endif
+:商品订货区间价;
+(B)
+note right:连接符B
+@enduml
+
+'商品详情 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :发起商品详情请求
+controller -> provider  :根据skuId查询商品sku\ngoodsInfoQueryProvider.getById
+provider -> service     :根据skuId查询商品sku\ngoodsInfoService.findOne
+service -> repository   :根据skuId查询商品sku\ngoodsInfoRepository.findOne
+database db
+repository -> db        :查询数据
+db  --> repository      :返回查询结果
+repository --> service  :返回查询结果
+service --> provider    :返回查询结果
+provider --> controller :返回查询结果
+controller -> provider  :查询商品视图\ngoodsQueryProvider.getViewById
+provider -> service     :查询商品视图\ngoodsService.findInfoById
+service -> repository   :查询商品所需数据
+note over service,repository
+    依次调用
+    查询商品
+    goodsRepository.findOne
+    查询商品图片
+    goodsImageRepository.findByGoodsId
+    查询sku列表
+    goodsInfoRepository.findAll
+    查询商品属性
+    goodsPropDetailRelRepository.queryByGoodsId
+    查询商品规格
+    goodsSpecRepository.findByGoodsId
+    goodsSpecDetailRepository.findByGoodsId
+    goodsInfoSpecDetailRelRepository.findByGoodsId
+    查询订货区间
+    goodsIntervalPriceRepository.findByGoodsId
+    goodsLevelPriceRepository.findByGoodsId
+    goodsCustomerPriceRepository.findByGoodsId
+end note
+repository -> db        :查询数据
+db  --> repository      :返回查询结果
+repository --> service  :返回查询结果
+service --> provider    :返回查询结果
+provider --> controller :返回查询结果
+controller -> controller:计算区间价、营销价
+controller --> react    :返回封装结果
+@enduml
+
+'商品详情 类图
+@startuml
+class GoodsBaseController{
+    -GoodsInfoQueryProvider goodsInfoQueryProvider
+    -GoodsQueryProvider goodsQueryProvider
+    -MarketingPluginProvider marketingPluginProvider
+    -GoodsIntervalPriceService goodsIntervalPriceService
+    +BaseResponse<GoodsViewByIdResponse> detail(String skuId)
+}
+
+GoodsBaseController *-- GoodsInfoQueryProvider
+GoodsBaseController *-- GoodsQueryProvider
+MarketingPluginProvider --* GoodsBaseController
+GoodsBaseController *- GoodsIntervalPriceService
+
+interface GoodsInfoQueryProvider{
+    +BaseResponse<GoodsInfoByIdResponse> getById(GoodsInfoByIdRequest request)
+}
+interface GoodsQueryProvider{
+    +BaseResponse<GoodsViewByIdResponse> getViewById(GoodsViewByIdRequest goodsByIdRequest)
+}
+interface MarketingPluginProvider{
+    +BaseResponse<GoodsInfoListByGoodsInfoResponse> goodsListFilter(MarketingPluginGoodsListFilterRequest request)
+}
+class GoodsIntervalPriceService{
+    -GoodsIntervalPriceProvider goodsIntervalPriceProvider
+    +GoodsIntervalPriceByCustomerIdResponse getGoodsIntervalPriceVOList(List<GoodsInfoVO> goodsInfoVOList, String customerId)
+}
+
+
+class GoodsInfoQueryController implements GoodsInfoQueryProvider {
+    -GoodsInfoService goodsInfoService
+    +BaseResponse<GoodsInfoByIdResponse> getById(GoodsInfoByIdRequest request)
+}
+GoodsInfoQueryController *-- GoodsInfoService
+class GoodsInfoService{
+    -GoodsInfoRepository goodsInfoRepository
+    +GoodsInfo findOne(String skuId)
+}
+GoodsInfoService *- GoodsInfoRepository
+interface GoodsInfoRepository{
+    +T findOne(ID id)
+    +List<T> findAll(Specification<T> spec)
+}
+
+class GoodsQueryController implements GoodsQueryProvider {
+    -GoodsService goodsService
+    +BaseResponse<GoodsViewByIdResponse> getViewById(@RequestBody @Valid GoodsViewByIdRequest goodsByIdRequest)
+}
+GoodsQueryController *-- GoodsService
+class GoodsService{
+    -GoodsRepository goodsRepository
+    -GoodsImageRepository goodsImageRepository
+    -GoodsInfoRepository goodsInfoRepository
+    -GoodsSpecRepository goodsSpecRepository
+    -GoodsSpecDetailRepository goodsSpecDetailRepository
+    -GoodsLevelPriceRepository goodsLevelPriceRepository
+    -GoodsCustomerPriceRepository goodsCustomerPriceRepository
+    -GoodsIntervalPriceRepository goodsIntervalPriceRepository
+    -GoodsPropDetailRelRepository goodsPropDetailRelRepository
+    -GoodsInfoSpecDetailRelRepository goodsInfoSpecDetailRelRepository
+    -FreightTemplateGoodsRepository freightTemplateGoodsRepository
+    +GoodsEditResponse findInfoById(String goodsId)
+}
+GoodsInfoRepository -* GoodsService
+GoodsRepository --* GoodsService
+GoodsImageRepository --* GoodsService
+GoodsSpecRepository --* GoodsService
+GoodsService *- GoodsSpecDetailRepository
+GoodsService *-- GoodsLevelPriceRepository
+GoodsService *-- GoodsCustomerPriceRepository
+GoodsService *-- GoodsIntervalPriceRepository
+GoodsService *-- GoodsPropDetailRelRepository
+GoodsService *-- GoodsInfoSpecDetailRelRepository
+GoodsService *-- FreightTemplateGoodsRepository
+interface GoodsRepository{
+    +T findOne(ID id)
+}
+interface GoodsImageRepository{
+    +List<GoodsImage> findByGoodsId(String goodsId)
+}
+interface GoodsSpecRepository{
+    +List<GoodsSpec> findByGoodsId(String goodsId)
+}
+interface GoodsSpecDetailRepository{
+    +List<GoodsSpecDetail> findByGoodsId(String goodsId)
+}
+interface GoodsLevelPriceRepository{
+    +List<GoodsLevelPrice> findByGoodsId(String goodsId)
+}
+interface GoodsCustomerPriceRepository{
+    +List<GoodsCustomerPrice> findByGoodsId(String goodsId)
+}
+interface GoodsIntervalPriceRepository{
+    +List<GoodsIntervalPrice> findByGoodsId(String goodsId)
+}
+interface GoodsPropDetailRelRepository{
+    +List<GoodsPropDetailRel> queryByGoodsId(String goodsId)
+}
+interface GoodsInfoSpecDetailRelRepository{
+    +List<GoodsInfoSpecDetailRel> findByGoodsId(String goodsId)
+}
+interface FreightTemplateGoodsRepository{
+    +FreightTemplateGoods queryById(Long freightTempId)
+}
+
+MarketingPluginController .|> MarketingPluginProvider
+class MarketingPluginController{
+    +MarketingPluginService marketingPluginService
+    ++BaseResponse<GoodsInfoListByGoodsInfoResponse> goodsListFilter(MarketingPluginGoodsListFilterRequest request)
+}
+MarketingPluginController *-- MarketingPluginService
+class MarketingPluginService{
+    -List<String> goodsListPlugins
+    +GoodsInfoListByGoodsInfoResponse goodsListFilter(List<GoodsInfoVO> goodsInfos, MarketingPluginRequest request)
+}
+@enduml

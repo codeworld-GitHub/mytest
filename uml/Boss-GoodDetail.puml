@@ -1,0 +1,156 @@
+'商品详情 流程图
+@startuml
+start
+:登录boss 进入商品-商品列表;
+:点击查看;
+:根据商品编号查询商品视图信息;
+if(系统是S2B?) then (yes)
+    :根据商品编号查询分类;
+else (no)
+endif
+stop
+@enduml
+
+'商品详情 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :页面请求商品详情
+controller -> provider  :根据商品id请求商品详情视图\ngoodsQueryProvider.getViewById
+provider -> service     :根据ID查询商品\ngoodsService.findInfoById
+service -> repository   :依次查询商品所需信息
+
+note over service,repository
+    根据商品ID查询goodsRepository.findOne
+    获取单品运费模板freightTemplateGoodsRepository.queryById
+    查询商品图片信息goodsImageRepository.findByGoodsId
+    查询商品信息goodsInfoRepository.findAll
+    查询商品属性goodsPropDetailRelRepository.queryByGoodsId
+    查询商品规格goodsSpecRepository.findByGoodsId
+    查询商品规格明细goodsSpecDetailRepository.findByGoodsId
+    填充SKU规格与规格值
+    goodsInfoSpecDetailRelRepository.findByGoodsId
+    查询区间价格,等级价格,客户定价
+    goodsIntervalPriceRepository.findByGoodsId
+    goodsLevelPriceRepository.findByGoodsId
+    goodsCustomerPriceRepository.findByGoodsId
+end note
+
+database db
+repository -> db        :查询数据
+db --> repository       :返回查询结果
+repository --> service  :返回查询结果
+service --> provider    :返回查询结果
+provider --> controller :返回查询结果
+
+controller -> provider  :(如果是S2B系统)根据商品id请求商品详情视图\nstoreCateQueryProvider.listByGoods
+provider -> service     :根据商品编号查询分类\nstoreCateService.getStoreCateByGoods
+service -> repository   :根据商品ID查询\nstoreCateGoodsRelaRepository.selectByGoodsId
+repository -> db        :查询数据
+db --> repository       :返回查询结果
+repository --> service  :返回查询结果
+service --> provider    :返回查询结果
+provider --> controller :返回查询结果
+controller --> react    :返回封装结果
+@enduml
+
+'商品详情 类图
+@startuml
+class GoodsController{
+    -OsUtil osUtil
+    -GoodsQueryProvider goodsQueryProvider
+    -StoreCateQueryProvider storeCateQueryProvider
+    +BaseResponse<GoodsViewByIdResponse> info(String goodsId)
+}
+OsUtil -* GoodsController
+GoodsController *- GoodsQueryProvider
+GoodsController *-- StoreCateQueryProvider
+class OsUtil{
+    +boolean isS2b()
+}
+interface GoodsQueryProvider {
+    +BaseResponse<GoodsViewByIdResponse> getViewById(GoodsViewByIdRequest goodsByIdRequest)
+}
+interface StoreCateQueryProvider {
+    +BaseResponse<StoreCateListByGoodsResponse> listByGoods(StoreCateListByGoodsRequest storeCateListByGoodsRequest)
+}
+
+class GoodsQueryController implements GoodsQueryProvider{
+    -GoodsService goodsService
+    +BaseResponse<GoodsViewByIdResponse> getViewById(GoodsViewByIdRequest request)
+}
+GoodsQueryController *-- GoodsService
+class GoodsService{
+    -GoodsRepository goodsRepository
+    -FreightTemplateGoodsRepository freightTemplateGoodsRepository
+    -GoodsImageRepository goodsImageRepository
+    -GoodsInfoRepository goodsInfoRepository
+    -GoodsPropDetailRelRepository goodsPropDetailRelRepository
+    -GoodsSpecRepository goodsSpecRepository
+    -GoodsSpecDetailRepository goodsSpecDetailRepository
+    -GoodsInfoSpecDetailRelRepository goodsInfoSpecDetailRelRepository
+    -GoodsIntervalPriceRepository goodsIntervalPriceRepository
+    -GoodsLevelPriceRepository goodsLevelPriceRepository
+    -GoodsCustomerPriceRepository goodsCustomerPriceRepository
+    +GoodsEditResponse findInfoById(String goodsId)
+}
+FreightTemplateGoodsRepository -* GoodsService
+GoodsIntervalPriceRepository -* GoodsService
+GoodsImageRepository --* GoodsService
+GoodsInfoSpecDetailRelRepository --* GoodsService
+GoodsPropDetailRelRepository --* GoodsService
+GoodsService *- GoodsCustomerPriceRepository
+GoodsService *-- GoodsRepository
+GoodsService *-- GoodsInfoRepository
+GoodsService *-- GoodsSpecDetailRepository
+GoodsService *-- GoodsSpecRepository
+GoodsService *-- GoodsLevelPriceRepository
+
+interface GoodsRepository{
+    +T findOne(ID id)
+}
+interface FreightTemplateGoodsRepository{
+    +FreightTemplateGoods queryById(Long freightTempId)
+}
+interface GoodsImageRepository{
+    +List<GoodsImage> findByGoodsId(String goodsId)
+}
+interface GoodsInfoRepository{
+    +List<T> findAll(Specification<T> spec)
+}
+interface GoodsPropDetailRelRepository{
+    +List<GoodsPropDetailRel> queryByGoodsId(String goodsId)
+}
+interface GoodsSpecRepository{
+    +List<GoodsSpec> findByGoodsId(String goodsId)
+}
+interface GoodsSpecDetailRepository{
+    +List<GoodsSpecDetail> findByGoodsId(String goodsId)
+}
+interface GoodsInfoSpecDetailRelRepository{
+    +List<GoodsInfoSpecDetailRel> findByGoodsId(String goodsId)
+}
+interface GoodsIntervalPriceRepository{
+    +List<GoodsIntervalPrice> findByGoodsId(String goodsId)
+}
+interface GoodsLevelPriceRepository{
+    +List<GoodsLevelPrice> findByGoodsId(String goodsId)
+}
+interface GoodsCustomerPriceRepository{
+    +List<GoodsCustomerPrice> findByGoodsId(String goodsId)
+}
+
+class StoreCateQueryController implements StoreCateQueryProvider{
+    -StoreCateService storeCateService
+    +BaseResponse<StoreCateListByGoodsResponse> listByGoods(StoreCateListByGoodsRequest storeCateListByGoodsRequest)
+}
+StoreCateQueryController *-- StoreCateService
+class StoreCateService {
+    -StoreCateGoodsRelaRepository storeCateGoodsRelaRepository
+    +List<StoreCateGoodsRela> getStoreCateByGoods(List<String> goodsIds)
+}
+StoreCateService *- StoreCateGoodsRelaRepository
+interface StoreCateGoodsRelaRepository{
+    +List<StoreCateGoodsRela> selectByGoodsId(List<String> goodsId)
+}
+@enduml

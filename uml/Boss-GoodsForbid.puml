@@ -1,0 +1,133 @@
+'商品禁售 流程图
+@startuml
+start
+:登录boss 进入商品-商品列表;
+:点击[禁售]弹出窗口;
+:填写禁售原因 点击确定;
+:设置审核人名称;
+:审核商品;
+:根据商品Id编号更新审核状态;
+:根据sku编码更新审核状态;
+:新增审核记录;
+:初始化SKU持久化于ES;
+:统计商品sku个数;
+(A)
+note right:连接符A
+@enduml
+
+'商品禁售 流程图 连接图
+@startuml
+(A)
+note left:连接符A
+if(个数<=0?) then (no)
+    if (删除索引?) then (no)
+    elseif (索引存在?) then (yes)
+    :删除索引;
+    :定制父子关系、重建分类品牌索引、重建商品索引;
+    else (no)
+    endif
+
+    :查询商品分类信息、查询品牌信息;
+    :查询商品sku列表;
+    if(sku列表为空?) then (no)
+    :分页查询SPU,营销活动Map,区间价Map,\n等级价Map,客户价Map,规格Map,规格值Map\n属性值Map,商品店铺分类Map。;
+    :遍历填充规格名,分配区间值,定义文档结构,\n分配规格值,分配属性值,填充签约有效期时间,\n获取店铺等级,组装营销活动;
+    :持久化分类品牌、持久化商品;
+    else (yes)
+    endif
+else (no)
+endif
+:ares埋点;
+stop
+@enduml
+
+'商品禁售 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :发起商品禁用请求
+controller -> controller:设置当前登录账号(手机号)
+controller -> provider  :调用商品审核\ngoodsProvider.checkGoods
+provider -> service     :调用s2bGoodsService.check
+activate service
+service -> repository   :根据sku编码依次调用更新状态,新增日志\ngoodsRepository.updateAuditDetail\ngoodsInfoRepository.updateAuditDetail\ngoodsCheckLogRepository.save
+database db
+repository -> db        :调用更新状态，新增审核日志
+db --> repository       :返回操作结果
+repository --> service  :返回结果
+service --> provider    :返回结果
+deactivate service
+provider --> controller :返回结果
+controller -> service   :初始化SKU持化于ES\nesGoodsInfoElasticService.initEsGoodsInfo
+service -> db           :sku信息保存到es中
+db --> service          :返回结果
+service --> controller  :返回结果
+controller -> provider  :ares埋点\ngoodsAresProvider.dispatchFunction
+provider -> service     :发送MQ调用\ngoodsAresService.dispatchFunction
+service --> provider    :返回结果
+provider --> controller :返回结果
+controller --> react    :返回结果
+@enduml
+
+
+'商品禁售 类图
+@startuml
+class BossGoodsController{
+    -CommonUtil commonUtil
+    -EsGoodsInfoElasticService esGoodsInfoElasticService
+    -GoodsProvider goodsProvider
+    +GoodsAresProvider goodsAresProvider
+    +BaseResponse forbid(GoodsCheckRequest checkRequest)
+}
+CommonUtil -* BossGoodsController
+BossGoodsController *-- GoodsProvider
+BossGoodsController *-- GoodsAresProvider
+BossGoodsController *- EsGoodsInfoElasticService
+
+class CommonUtil{
+    +String getAccountName()
+}
+class EsGoodsInfoElasticService{
+    +void initEsGoodsInfo(EsGoodsInfoRequest request)
+}
+interface GoodsProvider{
+    +BaseResponse checkGoods(GoodsCheckRequest request)
+}
+interface GoodsAresProvider{
+    +BaseResponse dispatchFunction(DispatcherFunctionRequest dispatcherFunctionRequest)
+}
+
+class GoodsController implements GoodsProvider{
+    -S2bGoodsService s2bGoodsService
+    +BaseResponse checkGoods(GoodsCheckRequest request)
+}
+GoodsController *-- S2bGoodsService
+class S2bGoodsService{
+    -GoodsRepository goodsRepository
+    -GoodsInfoRepository goodsInfoRepository
+    -GoodsCheckLogRepository goodsCheckLogRepository
+    +void check(GoodsCheckRequest checkRequest)
+}
+S2bGoodsService *-- GoodsInfoRepository
+S2bGoodsService *-- GoodsRepository
+S2bGoodsService *-left- GoodsCheckLogRepository
+interface GoodsRepository{
+    +void updateAuditDetail(CheckStatus auditStatus, String auditReason, List<String> goodsIds)
+}
+interface GoodsInfoRepository{
+    +void updateAuditDetail(CheckStatus auditStatus, List<String> goodsIds)
+}
+interface GoodsCheckLogRepository{
+    +<S extends T> S save(S entity)
+}
+
+class GoodsAresController implements GoodsAresProvider{
+    -GoodsAresService goodsAresService
+    +BaseResponse dispatchFunction(DispatcherFunctionRequest dispatcherFunctionRequest)
+}
+GoodsAresController *-- GoodsAresService
+class GoodsAresService{
+    -JmsTemplate jmsTemplate
+    +void dispatchFunction(String funcType, Object... objs)
+}
+@enduml

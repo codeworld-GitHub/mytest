@@ -1,0 +1,74 @@
+'新增商品品牌 流程图
+@startuml
+start
+:登录boss 进入商品-商品品牌;
+:点击新增品牌;
+repeat
+    repeat
+    :填写品牌信息;
+    repeat while (参数校验) is (不通过)
+:点击确认按钮;
+:新增品牌;
+repeat while (品牌名称是否重复？) is (重复)
+:品牌信息入库;
+:ares埋点;
+stop
+@enduml
+
+'新增商品品牌 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :发起新增商品品牌请求
+controller -> provider  :调用微服务商品品牌新增\ngoodsBrandProvider.add
+provider -> service     :调用商品品牌新增\ngoodsBrandService.add
+service -> repository   :判断名称是否重复\ngoodsBrandRepository.count
+database db
+repository -> db        :调用jpa查询
+db --> repository       :返回查询数量
+repository --> service  :返回查询数量
+service -> repository   :调用保存品牌信息保存方法\ngoodsBrandRepository.save
+repository -> db        :调用jpa保存方法
+db --> repository       :返回品牌信息
+service -> service      :调用ares埋点发送mq\ngoodsAresService.dispatchFunction
+service --> provider    :返回品牌信息
+provider --> controller :返回结果
+controller --> react    :返回结果
+@enduml
+
+'新增商品品牌 类图
+@startuml
+class GoodsBrandController{
+    -GoodsBrandProvider goodsBrandProvider
+    +ResponseEntity<BaseResponse<Long>> add(GoodsBrandSaveRequest saveRequest)
+}
+GoodsBrandController *- GoodsBrandProvider
+interface GoodsBrandProvider{
+    +BaseResponse<GoodsBrandAddResponse> add(GoodsBrandAddRequest request)
+}
+GoodsBrandProvider <|.. GoodsBrandController1
+class GoodsBrandController1{
+    -GoodsBrandService goodsBrandService
+    +BaseResponse<GoodsBrandAddResponse> add(GoodsBrandAddRequest request)
+}
+note left
+    <color:red>注：</color>GoodsBrandController1 是微服务中GoodsBrandProvider
+    的实现类GoodsBrandController 此处是区别于bff中的
+end note
+GoodsBrandController1 *-- GoodsBrandService
+class GoodsBrandService {
+    +GoodsAresService goodsAresService
+    -GoodsBrandRepository goodsBrandRepository
+    +GoodsBrand add(GoodsBrand goodsBrand)
+}
+GoodsBrandService *-- GoodsAresService
+GoodsBrandService *-- GoodsBrandRepository
+class GoodsAresService{
+    -JmsTemplate jmsTemplate
+    +void dispatchFunction(String funcType, Object... objs)
+}
+
+interface GoodsBrandRepository{
+    +<S extends T> S save(S entity)
+}
+@enduml

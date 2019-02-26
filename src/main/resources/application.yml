@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/mytest?useUnicode=true&characterEncoding=UTF8&useSSL=false
+    username: root
+    password: 12345678
+    continue-on-error: false
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      max-lifetime: 30000
+      idle-timeout: 30000
+      connection-timeout: 30000
+      validation-timeout: 15000
+  activemq:
+    broker-url: tcp://localhost:61616
+    in-memory: true
+    pool:
+      enabled: true
+
+mybatis:
+  mapper-locations: classpath*:mapper/*Mapper.xml
+  type-aliases-package: >
+    com.liguang.mytest.entry
+
+server:
+  port: 9990
+
+management:
+  server:
+    port: 6000
+  health:
+    mail:
+      enabled: false
+
+
+
+
+
+

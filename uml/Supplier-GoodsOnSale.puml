@@ -1,0 +1,118 @@
+'商品上架 流程图
+@startuml
+start
+:登录Supplier 进入商品-商品列表;
+:点击操作[上架];
+if(商品ids为空？) then (yes)
+    :抛出异常;
+    stop
+else (no)
+endif
+:设置请求状态为上架;
+:更新spu,sku状态为上架;
+:更新ES中商品状态;
+:ares埋点;
+stop
+@enduml
+
+'商品上架 流程图
+@startuml
+autonumber
+actor react
+react -> controller     :页面发起上架请求
+controller -> provider  :调用更新商品上下架状态\ngoodsProvider.modifyAddedStatus
+provider -> service     :调用更新商品上下架状态\ngoodsService.updateAddedStatus
+service -> repository   :依次更新spu,sku状态\ngoodsRepository.updateAddedFlagByGoodsIds\ngoodsInfoRepository.updateAddedFlagByGoodsIds
+database db
+repository -> db        :依次更新spu,sku状态
+db --> repository       :返回结果
+repository --> service  :返回结果
+service --> provider    :返回结果
+provider --> controller :返回结果
+controller -> service   :更新ES中对应商品的上下架状态\nesGoodsInfoElasticService.updateAddedStatus
+service -> db           :更新ES中对应商品的上下架状态
+db --> service          :返回结果
+service --> controller  :返回结果
+controller -> provider  :ares埋点\ngoodsAresProvider.dispatchFunction
+provider -> service     :ares埋点发送MQ\ngoodsAresService.dispatchFunction
+service --> provider    :返回结果
+provider --> controller :返回结果
+controller --> react    :返回结果
+@enduml
+
+'商品上架 流程图
+@startuml
+class GoodsController{
+    -GoodsProvider goodsProvider
+    +GoodsAresProvider goodsAresProvider
+    -EsGoodsInfoElasticService esGoodsInfoElasticService
+    +BaseResponse onSale(GoodsModifyAddedStatusRequest request)
+}
+GoodsAresProvider -* GoodsController
+GoodsController *- EsGoodsInfoElasticService
+GoodsController *-- GoodsProvider
+
+class EsGoodsInfoElasticService{
+    -EsGoodsInfoElasticRepository esGoodsInfoElasticRepository
+    -GoodsInfoQueryProvider goodsInfoQueryProvider
+    -Client client
+    +void updateAddedStatus(Integer addedFlag, List<String> goodsIds, List<String> goodsInfoIds)
+}
+EsGoodsInfoElasticService *- ElasticsearchRepository
+interface ElasticsearchRepository{
+    +Iterable<T> search(QueryBuilder query)
+}
+
+EsGoodsInfoElasticService *-- GoodsInfoQueryProvider
+interface GoodsInfoQueryProvider{
+    +BaseResponse<GoodsInfoListByConditionResponse> listByCondition(GoodsInfoListByConditionRequest request)
+}
+class GoodsInfoQueryController implements GoodsInfoQueryProvider {
+    +GoodsInfoService goodsInfoService
+    +BaseResponse<GoodsInfoListByConditionResponse> listByCondition(GoodsInfoListByConditionRequest request)
+}
+GoodsInfoQueryController *-- GoodsInfoService
+class GoodsInfoService {
+    -GoodsInfoRepository goodsInfoRepository
+    +List<GoodsInfo> findByParams(GoodsInfoQueryRequest request)
+}
+GoodsInfoService *-- GoodsInfoRepository
+interface GoodsInfoRepository{
+    +List<T> findAll(Specification<T> spec)
+    +void updateAddedFlagByGoodsIds(Integer addedFlag, List<String> goodsIds)
+}
+
+interface GoodsAresProvider{
+    +BaseResponse dispatchFunction(DispatcherFunctionRequest dispatcherFunctionRequest)
+}
+
+class GoodsAresController implements GoodsAresProvider{
+    -GoodsAresService goodsAresService
+    +BaseResponse dispatchFunction(DispatcherFunctionRequest dispatcherFunctionRequest)
+}
+GoodsAresController *-- GoodsAresService
+class GoodsAresService{
+    -JmsTemplate jmsTemplate
+    +void dispatchFunction(String funcType, Object... objs)
+}
+
+interface GoodsProvider{
+    +BaseResponse modifyAddedStatus(GoodsModifyAddedStatusRequest request)
+}
+class GoodsController1 implements GoodsProvider {
+    -GoodsService goodsService
+    +BaseResponse modifyAddedStatus(GoodsModifyAddedStatusRequest request)
+}
+GoodsController1 *-- GoodsService
+class GoodsService{
+    -GoodsInfoRepository goodsInfoRepository
+    -GoodsRepository goodsRepository
+    +void updateAddedStatus(Integer addedFlag, List<String> goodsIds)
+}
+GoodsRepository -* GoodsService
+GoodsService *-- GoodsInfoRepository
+interface GoodsRepository{
+    +void updateAddedFlagByGoodsIds(Integer addedFlag, List<String> goodsIds)
+}
+
+@enduml

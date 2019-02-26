@@ -1,0 +1,155 @@
+'新增商品类目 流程图
+@startuml
+start
+:登录boss 进入商品-商品类目;
+:点击新增一级类目或添加子类目;
+repeat
+:填写类目信息;
+repeat while (参数校验) is (不通过)
+:点击确认按钮;
+if(新增商品分类成功？) then (yes)
+    :数据入库;
+    :查询父分类是否关联优惠券;
+    if(有关联?) then (yes)
+    :批量新增优惠券商品作用范围;
+    :数据入库;
+    else (no)
+    endif
+else (no)
+endif
+stop
+@enduml
+
+
+
+'新增商品类目 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :发起新增类目请求
+controller -> provider  :调用微服务新增\ngoodsCateProvider.add
+provider -> service     :调用新增\ngoodsCateService.add
+service -> service      :cateParentId若为null设0
+service -> repository   :判断名称是否重复\ngoodsCateRepository.count
+database db
+repository -> db        :查询数据
+db --> repository       :返回数量
+repository --> service  :返回数量
+service -> repository   :判断同父分类子类数是否超限\ngoodsCateRepository.count
+repository -> db        :查询数据
+db --> repository       :返回数量
+repository --> service  :返回数量
+service -> repository   :调用保存\ngoodsCateRepository.saveAndFlush
+repository -> db        :调用保存
+db --> repository       :返回保存对象
+repository --> service  :返回保存对象
+service -> service      :redis生成缓存
+service -> service      :调用ares埋点发送mq\ngoodsAresService.dispatchFunction
+service --> provider    :返回保存对象
+provider --> controller :返回保存对象
+controller -> provider  :查询父分类关联优惠券\ncouponMarketingScopeQueryProvider\n.listByScopeId
+provider -> service     :根据优惠券ID查询作用范围
+service -> repository   :根据优惠券ID查询作用范围
+repository -> db        :查询数据
+db --> repository       :返回查询对象
+repository --> service  :返回查询对象
+service --> provider    :返回查询对象
+provider --> controller :返回查询对象
+controller -> provider  :**如果关联**则调用批量新增优惠券商品作用范围\ncouponMarketingScopeProvider\n.batchAdd
+provider -> service     :批量插入优惠券商品作用范围\ncouponMarketingScopeService\n.addbatchCouponMarketingScope
+service -> repository   :批量插入优惠券商品作用范围
+repository -> db        :批量插入
+db --> repository       :返回
+repository --> service  :返回
+service --> provider    :返回
+provider --> controller :返回
+controller --> react    :返回
+@enduml
+
+
+
+'新增商品类目 类图
+@startuml
+class BossGoodsCateController{
+    -GoodsCateProvider goodsCateProvider
+    -CouponMarketingScopeProvider couponMarketingScopeProvider
+    -CouponMarketingScopeQueryProvider couponMarketingScopeQueryProvider
+    +BaseResponse add(GoodsCateAddRequest saveRequest)
+}
+'controller注入
+BossGoodsCateController *-- GoodsCateProvider
+BossGoodsCateController *-- CouponMarketingScopeProvider
+BossGoodsCateController *-- CouponMarketingScopeQueryProvider
+
+'定义接口
+interface GoodsCateProvider{
+    +BaseResponse<GoodsCateAddResponse> add(GoodsCateAddRequest request)
+}
+'接口实现
+class GoodsCateController implements GoodsCateProvider{
+    -GoodsCateService goodsCateService
+    +BaseResponse<GoodsCateAddResponse> add(GoodsCateAddRequest request)
+}
+
+GoodsCateController *-- GoodsCateService
+
+class GoodsCateService{
+    -GoodsCateRepository goodsCateRepository
+    -RedisService redisService
+    +GoodsAresService goodsAresService
+    +GoodsCate add(GoodsCateSaveRequest saveRequest)
+}
+
+GoodsCateService *-- GoodsCateRepository
+GoodsCateService *-- RedisService
+GoodsCateService *-- GoodsAresService
+
+interface GoodsCateRepository{
+    +<S extends T> S saveAndFlush(S entity)
+    +T findOne(Specification<T> spec)
+    +long count(Specification<T> spec)
+}
+class RedisService{
+    -RedisTemplate<String, ?> redisTemplate
+    +boolean setString(final String key, final String value)
+}
+class GoodsAresService{
+    -JmsTemplate jmsTemplate
+    +void dispatchFunction(String funcType, Object... objs)
+}
+
+'------------------------------------------------------------------------
+'定义接口
+interface CouponMarketingScopeQueryProvider{
+    +BaseResponse batchAdd(CouponMarketingScopeBatchAddRequest request)
+}
+'接口实现
+class CouponMarketingScopeQueryController implements CouponMarketingScopeQueryProvider{
+    -CouponMarketingScopeService couponMarketingScopeService
+    +BaseResponse batchAdd(CouponMarketingScopeBatchAddRequest request)
+}
+CouponMarketingScopeQueryController *-- CouponMarketingScopeService
+class CouponMarketingScopeService{
+    -CouponMarketingScopeRepository couponMarketingScopeRepository
+    +List<CouponMarketingScope> listScopeByScopeId(String scopeId)
+    +void addBatchCouponMarketingScope(List<CouponMarketingScope> couponMarketingScopes)
+}
+CouponMarketingScopeService *-- CouponMarketingScopeRepository
+interface CouponMarketingScopeRepository{
+    +List<CouponMarketingScope> findByScopeId(String scopeId)
+    +List save(Iterable entities)
+}
+
+'------------------------------------------------------------------------
+'定义接口
+interface CouponMarketingScopeProvider{
+    +BaseResponse<CouponMarketingScopeByScopeIdResponse> listByScopeId(CouponMarketingScopeByScopeIdRequest request)
+}
+
+'接口实现
+class CouponMarketingScopeController implements CouponMarketingScopeProvider{
+    -CouponMarketingScopeService couponMarketingScopeService
+    +BaseResponse<CouponMarketingScopeByScopeIdResponse> listByScopeId(CouponMarketingScopeByScopeIdRequest request)
+}
+CouponMarketingScopeController *-- CouponMarketingScopeService
+@enduml

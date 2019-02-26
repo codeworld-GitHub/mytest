@@ -1,0 +1,200 @@
+'商品列表 流程图
+@startuml
+start
+:登录PC系统;
+:点击全部类目;
+if(营销Id不为null) then (yes)
+    if(营销开启) then (no)
+        :抛出异常;
+        stop
+    else(yes)
+    endif
+else(no)
+endif
+:设置默认查询条件;
+if(b2b模式) then (yes)
+    :按会员/客户价格排序;
+else(no)
+    :按市场价排序;
+endif
+(A)
+note right: 连接符A
+@enduml
+
+@startuml
+(A)
+note left: 连接符A
+:设置查询条件;
+note left
+    关键字，商品分类
+    店铺分类，设定排序
+    聚合品牌，聚合分类
+    嵌套聚合规格-规格值
+end note
+:根据条件查询商品信息;
+:填充SPU数据，规格值，聚合数据等;
+:返回结果;
+if(结果为空？) then (no)
+    :计算区间价，营销价格;
+else(yes)
+endif
+:返回封装结果;
+@enduml
+
+'商品列表 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :发起搜索商品请求
+controller -> provider  :查询营销活动\nmarketingQueryProvider.getByIdForCustomer
+provider -> service     :查询营销活动\nmarketingService.getMarketingByIdForCustomer
+service -> repository   :查询营销活动\nmarketingRepository.findOne
+repository -> db        :查询数据
+db --> repository       :返回查询结果
+repository --> service  :返回查询结果
+service --> provider    :返回查询结果
+provider --> controller :返回查询结果
+controller -> controller:设置默认查询条件
+controller -> service   :查询ES获取商品信息\nesGoodsInfoElasticService.page
+service -> service      :设置查询条件
+database db
+service -> db           :查询ES获取商品信息
+db --> service          :返回结果
+service --> controller  :返回结果
+controller -> controller:计算区间价、营销价
+controller --> react    :返回封装结果
+@enduml
+
+'商品列表 类图
+@startuml
+class GoodsInfoBaseController{
+    -MarketingQueryProvider marketingQueryProvider
+    -CustomerLevelQueryProvider customerLevelQueryProvider
+    -MarketingPluginProvider marketingPluginProvider
+    -PurchaseProvider purchaseProvider
+    -EsGoodsInfoElasticService esGoodsInfoElasticService
+    -GoodsIntervalPriceService goodsIntervalPriceService
+    +BaseResponse<EsGoodsInfoResponse> list(EsGoodsInfoQueryRequest queryRequest)
+}
+
+CustomerLevelQueryProvider -* GoodsInfoBaseController
+GoodsInfoBaseController *-- MarketingQueryProvider
+GoodsInfoBaseController *-- MarketingPluginProvider
+GoodsInfoBaseController *-- PurchaseProvider
+EsGoodsInfoElasticService --* GoodsInfoBaseController
+GoodsInfoBaseController *- GoodsIntervalPriceService
+
+interface MarketingQueryProvider{
+    +BaseResponse<MarketingGetByIdForCustomerResponse> getByIdForCustomer(MarketingGetByIdRequest getByIdRequest)
+}
+interface CustomerLevelQueryProvider{
+    +BaseResponse<CustomerLevelWithDefaultByCustomerIdResponse> getCustomerLevelWithDefaultByCustomerId(CustomerLevelWithDefaultByCustomerIdRequest request)
+}
+interface MarketingPluginProvider{
+    +BaseResponse<GoodsInfoListByGoodsInfoResponse> goodsListFilter(MarketingPluginGoodsListFilterRequest request)
+}
+interface PurchaseProvider{
+    +BaseResponse<PurchaseFillBuyCountResponse> fillBuyCount(PurchaseFillBuyCountRequest request)
+}
+class EsGoodsInfoElasticService{
+    -GoodsQueryProvider goodsQueryProvider
+    -GoodsCateQueryProvider goodsCateQueryProvider
+    -StoreCateQueryProvider storeCateQueryProvider
+    -GoodsInfoQueryProvider goodsInfoQueryProvider
+    -GoodsBrandQueryProvider goodsBrandQueryProvider
+    -GoodsInfoSpecDetailRelQueryProvider goodsInfoSpecDetailRelQueryProvider
+    -ElasticsearchTemplate elasticsearchTemplate
+    +EsGoodsInfoResponse page(EsGoodsInfoQueryRequest queryRequest)
+}
+class GoodsIntervalPriceService{
+    -GoodsIntervalPriceProvider goodsIntervalPriceProvider
+    +GoodsIntervalPriceByCustomerIdResponse getGoodsIntervalPriceVOList(List<GoodsInfoVO> goodsInfoVOList, String customerId)
+}
+GoodsIntervalPriceService *- GoodsIntervalPriceProvider
+interface GoodsIntervalPriceProvider{
+    +BaseResponse<Response> putByCustomerId(Request request)
+}
+
+
+class MarketingQueryController implements MarketingQueryProvider {
+    +MarketingService marketingService
+    +BaseResponse<MarketingGetByIdForCustomerResponse> getByIdForCustomer(MarketingGetByIdRequest getByIdRequest)
+}
+MarketingQueryController *-- MarketingService
+class MarketingService{
+    -MarketingRepository marketingRepository
+    +MarketingResponse getMarketingByIdForCustomer(Long marketingId)
+}
+MarketingService *-- MarketingRepository
+interface MarketingRepository{
+    +T findOne(ID id)
+}
+
+
+class CustomerLevelQueryController implements CustomerLevelQueryProvider {
+    +CustomerLevelService customerLevelService
+    +BaseResponse<Response> getCustomerLevelWithDefaultByCustomerId(Request request)
+}
+CustomerLevelQueryController *-- CustomerLevelService
+class CustomerLevelService{
+    -StoreRepository storeRepository
+    +CustomerLevel findLevelByCustomerId(String customerId)
+}
+CustomerLevelService *-- StoreRepository
+interface StoreRepository{
+    +List<T> findAll()
+}
+
+
+class MarketingPluginController implements MarketingPluginProvider {
+    -MarketingPluginService marketingPluginService
+    +BaseResponse<GoodsInfoListByGoodsInfoResponse> goodsListFilter(MarketingPluginGoodsListFilterRequest request)
+}
+MarketingPluginController *-- MarketingPluginService
+class MarketingPluginService{
+    -List<String> goodsListPlugins
+    +GoodsInfoListByGoodsInfoResponse goodsListFilter(List<GoodsInfoVO> goodsInfos, MarketingPluginRequest request)
+}
+
+
+class PurchaseController implements PurchaseProvider {
+    -PurchaseService purchaseService
+    +BaseResponse<PurchaseFillBuyCountResponse> fillBuyCount(PurchaseFillBuyCountRequest request)
+}
+PurchaseController *-- PurchaseService
+class PurchaseService{
+    -PurchaseRepository purchaseRepository
+    +List<GoodsInfoVO> fillBuyCount(List<GoodsInfoVO> goodsInfoList, String customerId)
+}
+PurchaseService *-- PurchaseRepository
+interface PurchaseRepository{
+    +List<T> findAll(Specification<T> spec)
+}
+
+GoodsQueryProvider --* EsGoodsInfoElasticService
+GoodsCateQueryProvider --* EsGoodsInfoElasticService
+StoreCateQueryProvider -* EsGoodsInfoElasticService
+GoodsInfoQueryProvider --* EsGoodsInfoElasticService
+GoodsBrandQueryProvider --* EsGoodsInfoElasticService
+EsGoodsInfoElasticService *- GoodsInfoSpecDetailRelQueryProvider
+
+interface GoodsQueryProvider{
+    +BaseResponse<GoodsByConditionResponse> listByCondition(GoodsByConditionRequest goodsByConditionRequest)
+}
+interface GoodsCateQueryProvider{
+    +BaseResponse<GoodsCateByIdResponse> getById(GoodsCateByIdRequest request)
+    +BaseResponse<GoodsCateListByConditionResponse> listByCondition(GoodsCateListByConditionRequest request)
+}
+interface StoreCateQueryProvider{
+    +BaseResponse<StoreCateListByStoreCateIdAndIsHaveSelfResponse> listByStoreCateIdAndIsHaveSelf(StoreCateListByStoreCateIdAndIsHaveSelfRequest storeCateListByStoreCateIdAndIsHaveSelfRequest)
+}
+interface GoodsInfoQueryProvider{
+    +BaseResponse<GoodsInfoListByIdsResponse> listByIds(GoodsInfoListByIdsRequest request)
+}
+interface GoodsBrandQueryProvider{
+    +BaseResponse<GoodsBrandListResponse> list(GoodsBrandListRequest request)
+}
+interface GoodsInfoSpecDetailRelQueryProvider{
+    +BaseResponse<GoodsInfoSpecDetailRelBySkuIdsResponse> listBySkuIds(GoodsInfoSpecDetailRelBySkuIdsRequest goodsInfoSpecDetailRelBySkuIdsRequest)
+}
+@enduml

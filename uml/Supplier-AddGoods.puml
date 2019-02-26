@@ -1,0 +1,240 @@
+'直接发布商品 流程图
+@startuml
+start
+:登录Supplier 进入商品-发布商品;
+:点击[直接发布]跳转[新增商品]页面;
+repeat
+    :填写商品信息;
+repeat while(参数校验) is (不通过)
+
+if(下一步?) then (yes)
+    repeat
+    :填写价格及订货量;
+    repeat while(参数校验) is (不通过)
+else (no)
+endif
+:保存\直接保存;
+(A)
+note right: 连接符A
+@enduml
+
+@startuml
+(A)
+note left: 连接符A
+if(参数校验?) then (不通过)
+    :抛出异常;
+    stop
+else(通过)
+note left
+    验证包括sku编码重复
+    sku数据重复
+    相关基础数据验证
+    签约分类
+    签约品牌
+    店铺分类等
+end note
+endif
+:保存商品信息、新增图片、店铺分类、商品属性;
+if(多规格？) then (是)
+    :新增规格、新增规格值;
+else(否)
+endif
+repeat
+:遍历sku保存sku的规格和规格值关系;
+repeat while(sku遍历完成？) is (no)
+:ares埋点;
+:持久化SKU到ES;
+stop
+@enduml
+
+'直接发布商品 时序图
+@startuml
+autonumber
+actor react
+react -> controller     :发起新增商品请求
+controller -> controller:参数校验
+controller -> provider  :商品信息保存\ngoodsProvider.add
+provider -> service     :商品信息保存\ngoodsService.add
+service -> service      :参数校验
+note right
+    sku编码重复、sku数据重复
+    签约分类 签约品牌 店铺分类
+    等基础数据验证
+end note
+service -> repository   :保存商品数据
+note over service,repository
+    依次请求
+    保存商品数据goodsRepository.save
+    保存图片goodsImageRepository.save
+    保存店铺分类storeCateGoodsRelaRepository.save
+    保存商品属性goodsPropDetailRelRepository.save
+    保存规格goodsSpecRepository.save
+    保存规格值goodsSpecDetailRepository.save
+    保存sku规格关系goodsInfoSpecDetailRelRepository.save
+end note
+database db
+repository -> db        :保存商品数据
+db --> repository       :返回保存的商品数据
+repository --> service  :返回保存的商品数据
+service --> provider    :返回商品Id
+provider --> controller :返回商品Id
+controller -> provider  :ares埋点\ngoodsAresProvider.dispatchFunction
+provider -> service     :发送MQ\ngoodsAresService.dispatchFunction
+service --> provider    :返回结果
+provider --> controller :返回结果
+controller -> service   :商品持久到ES\nesGoodsInfoElasticService.initEsGoodsInfo
+service -> db           :商品持久到ES
+db --> service          :返回结果
+service --> controller  :返回结果
+controller --> react    :返回结果
+@enduml
+
+'直接发布商品 类图
+@startuml
+class GoodsController{
+    -CommonUtil commonUtil
+    -GoodsProvider goodsProvider
+    -CompanyInfoQueryProvider companyInfoQueryProvider
+    -FreightTemplateGoodsQueryProvider freightTemplateGoodsQueryProvider
+    +GoodsAresProvider goodsAresProvider
+    -EsGoodsInfoElasticService esGoodsInfoElasticService
+    +BaseResponse<String> add(GoodsAddRequest request)
+}
+
+FreightTemplateGoodsQueryProvider -* GoodsController
+GoodsController *- CompanyInfoQueryProvider
+GoodsController *-- CommonUtil
+GoodsController *-- GoodsAresProvider
+GoodsController *-- EsGoodsInfoElasticService
+GoodsController *-- GoodsProvider
+
+class CommonUtil{
+    +Long getCompanyInfoId()
+    +Long getStoreId()
+}
+class EsGoodsInfoElasticService{
+    +void initEsGoodsInfo(EsGoodsInfoRequest request)
+}
+interface CompanyInfoQueryProvider{
+    +BaseResponse<CompanyInfoByIdResponse> getCompanyInfoById(CompanyInfoByIdRequest request)
+}
+interface FreightTemplateGoodsQueryProvider{
+    +BaseResponse existsById(FreightTemplateGoodsExistsByIdRequest request)
+}
+interface GoodsAresProvider{
+    +BaseResponse dispatchFunction(DispatcherFunctionRequest dispatcherFunctionRequest)
+}
+interface GoodsProvider{
+    +BaseResponse<GoodsAddResponse> add(GoodsAddRequest request)
+}
+
+CompanyInfoQueryProvider <|. CompanyInfoQueryController
+class CompanyInfoQueryController{
+    -CompanyInfoService companyInfoService
+    +BaseResponse<CompanyInfoByIdResponse> getCompanyInfoById(CompanyInfoByIdRequest request)
+}
+CompanyInfoQueryController *-- CompanyInfoService
+class CompanyInfoService{
+    -CompanyInfoRepository companyInfoRepository
+    +CompanyInfo findOne(Long companyInfoId)
+}
+CompanyInfoService *-- CompanyInfoRepository
+interface CompanyInfoRepository{
+    +T findOne(ID id)
+}
+
+FreightTemplateGoodsQueryController .|> FreightTemplateGoodsQueryProvider
+class FreightTemplateGoodsQueryController{
+    -FreightTemplateGoodsService freightTemplateGoodsService
+    +BaseResponse existsById(FreightTemplateGoodsExistsByIdRequest request)
+}
+FreightTemplateGoodsQueryController *-- FreightTemplateGoodsService
+class FreightTemplateGoodsService{
+    -FreightTemplateGoodsRepository freightTemplateGoodsRepository
+    +void hasFreightTemp(Long freightTempId)
+}
+FreightTemplateGoodsService *-- FreightTemplateGoodsRepository
+interface FreightTemplateGoodsRepository{
+    +FreightTemplateGoods queryById(Long freightTempId)
+}
+
+class GoodsAresController implements GoodsAresProvider{
+    -GoodsAresService goodsAresService
+    +BaseResponse dispatchFunction(DispatcherFunctionRequest dispatcherFunctionRequest)
+
+}
+GoodsAresController *-- GoodsAresService
+class GoodsAresService{
+    -JmsTemplate jmsTemplate
+    -GoodsRepository goodsRepository
+    +BaseResponse dispatchFunction(DispatcherFunctionRequest dispatcherFunctionRequest)
+    +void addGoodsSku(Object... objs)
+}
+GoodsRepository -* GoodsAresService
+interface GoodsRepository{
+    +T findOne(ID id)
+    +long count(Specification<T> spec)
+    +<S extends T> S save(S entity)
+}
+GoodsProvider <|.. GoodsController1
+class GoodsController1{
+    -GoodsService goodsService
+    +BaseResponse<GoodsAddResponse> add(GoodsAddRequest request)
+}
+note left: 区别于buff中的GoodsController
+GoodsController1 *-- GoodsService
+class GoodsService{
+    -GoodsRepository goodsRepository
+    -GoodsInfoRepository goodsInfoRepository
+    -GoodsImageRepository goodsImageRepository
+    -StoreCateGoodsRelaRepository storeCateGoodsRelaRepository
+    -GoodsPropDetailRelRepository goodsPropDetailRelRepository
+    -GoodsSpecRepository goodsSpecRepository
+    -GoodsSpecDetailRepository goodsSpecDetailRepository
+    -GoodsInfoSpecDetailRelRepository goodsInfoSpecDetailRelRepository
+    -GoodsCommonService goodsCommonService
+    +String add(GoodsSaveRequest saveRequest)
+}
+GoodsService *- GoodsRepository
+GoodsService *-- GoodsInfoRepository
+GoodsService *-- GoodsImageRepository
+GoodsService *-- StoreCateGoodsRelaRepository
+GoodsService *-- GoodsPropDetailRelRepository
+GoodsService *-- GoodsSpecRepository
+GoodsService *-- GoodsSpecDetailRepository
+GoodsService *-- GoodsInfoSpecDetailRelRepository
+GoodsCommonService -* GoodsService
+
+interface GoodsInfoRepository{
+    +List<T> findAll(Specification<T> spec)
+}
+interface GoodsImageRepository{
+    +<S extends T> S save(S entity)
+}
+interface StoreCateGoodsRelaRepository{
+    +<S extends T> S save(S entity)
+}
+interface GoodsPropDetailRelRepository{
+    +<S extends T> List save(Iterable entities)
+}
+interface GoodsSpecRepository{
+    +<S extends T> S save(S entity)
+}
+interface GoodsSpecDetailRepository{
+    +<S extends T> S save(S entity)
+}
+interface GoodsInfoSpecDetailRelRepository{
+    +<S extends T> S save(S entity)
+}
+
+class GoodsCommonService{
+    -AuditQueryProvider auditQueryProvider
+    +void setCheckState(Goods goods)
+}
+AuditQueryProvider -* GoodsCommonService
+interface AuditQueryProvider{
+    +BaseResponse<BossGoodsAuditResponse> isBossGoodsAudit()
+    +BaseResponse<SupplierGoodsAuditResponse> isSupplierGoodsAudit()
+}
+note left: 访问到setting服务\n参见setting服务类图
+@enduml
