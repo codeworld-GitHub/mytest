@@ -27,4 +27,7 @@ public class Person implements Serializable {
     private Integer sex;
     private TestOrdinal testOrdinal;
     private Double salary;
+
+    private String count;
+    private String total;
 }
