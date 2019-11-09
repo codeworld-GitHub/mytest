@@ -2,6 +2,7 @@ package com.liguang.mytest.event;
 
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
+import com.liguang.mytest.BaseTest;
 import com.liguang.mytest.event.listener.TestEventListener;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
@@ -17,7 +18,7 @@ import java.util.stream.Collectors;
  * History: //修改历史
  */
 
-public class TestEventBus {
+public class TestEventBus extends BaseTest {
     @Test
     public void testReceiveEvent() {
         EventBus eventBus = new EventBus("test");

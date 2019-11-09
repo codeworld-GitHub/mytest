@@ -1,6 +1,7 @@
 package com.liguang.mytest.event;
 
 import com.google.common.eventbus.EventBus;
+import com.liguang.mytest.BaseTest;
 import com.liguang.mytest.event.listener.MultipleListener;
 import org.junit.Test;
 
@@ -11,7 +12,7 @@ import org.junit.Test;
  * History: //修改历史
  */
 
-public class TestMultipleEvents {
+public class TestMultipleEvents extends BaseTest {
     @Test
     public void testMultipleEvents() throws Exception {
 

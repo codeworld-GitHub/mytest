@@ -3,7 +3,7 @@ spring:
     driver-class-name: com.mysql.jdbc.Driver
     url: jdbc:mysql://yldoors.xyz:3306/test?useUnicode=true&characterEncoding=UTF8&useSSL=false
     username: root
-    password: 12345678
+    password: Li54321!
     continue-on-error: false
     hikari:
       maximum-pool-size: 50
