@@ -11,6 +11,7 @@ public class TestEvent {
     private final Integer message;
 
     TestEvent(Integer message) {
+
         this.message = message;
         System.out.println("event message :" + message);
     }
