@@ -3,7 +3,7 @@ package com.liguang.mytest.event;
 import com.google.common.eventbus.EventBus;
 import com.liguang.mytest.BaseTest;
 import com.liguang.mytest.event.listener.MultipleListener;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Description: //模块目的、功能描述

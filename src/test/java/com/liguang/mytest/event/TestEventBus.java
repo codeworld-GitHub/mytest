@@ -5,9 +5,8 @@ import com.google.common.eventbus.EventBus;
 import com.liguang.mytest.BaseTest;
 import com.liguang.mytest.event.listener.TestEventListener;
 import org.apache.commons.lang3.StringUtils;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 

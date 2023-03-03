@@ -1,8 +1,9 @@
 package com.liguang.mytest;
 
 import org.jasypt.encryption.StringEncryptor;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StopWatch;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -12,9 +13,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 /**
- * JasyptTest 加密测试
+ * CompletableFutureTest 加密测试
  */
-public class JasyptTest extends BaseTest {
+public class CompletableFutureTest extends BaseTest {
     @Autowired
     private StringEncryptor stringEncryptor;
 
@@ -28,19 +29,32 @@ public class JasyptTest extends BaseTest {
      */
     @Test
     public void testCompletableFuture() throws ExecutionException, InterruptedException {
-        CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
-            System.out.println("Begin Invoke getFuntureHasReturnLambda");
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start("开始请求");
+        CompletableFuture<String> futureOne = CompletableFuture.supplyAsync(() -> {
             try {
                 Thread.sleep(10000);
             } catch (InterruptedException e) {
 
             }
-            System.out.println("End Invoke getFuntureHasReturnLambda");
-            return "hasReturnLambda";
+            return "futureOne";
         });
-        System.out.println("Main Method Is Invoking");
-        future.get();
-        System.out.println("Main Method End");
+        CompletableFuture<String> futureTwo = CompletableFuture.supplyAsync(() -> {
+            getException();
+            return "futureTwo";
+        }).exceptionally(throwable -> {
+            System.out.println(throwable.getMessage());
+            return "结果2出现了异常";
+        });
+        stopWatch.stop();
+        stopWatch.start("开始获取结果1");
+        String oneRes = futureOne.get();
+        stopWatch.stop();
+        stopWatch.start("开始获取结果2");
+        String twoRes = futureTwo.get();
+        stopWatch.stop();
+        System.out.println("oneRes：" + oneRes + "  twoRes：" + twoRes);
+        System.out.println(stopWatch.prettyPrint());
     }
 
     @Test
@@ -97,5 +111,14 @@ public class JasyptTest extends BaseTest {
             e.printStackTrace();
         }
         return i;
+    }
+
+    public String getException() {
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+
+        }
+        throw new RuntimeException("报告报告我是2号我出现了异常");
     }
 }

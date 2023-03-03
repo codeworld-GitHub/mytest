@@ -1,7 +1,7 @@
 package com.liguang.mytest;
 
 import com.liguang.mytest.enums.KafkaEnums;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author liguang3096

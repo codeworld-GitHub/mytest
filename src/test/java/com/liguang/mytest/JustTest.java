@@ -1,21 +1,16 @@
 package com.liguang.mytest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Splitter;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.liguang.mytest.entry.Person;
 import com.liguang.mytest.enums.TestOrdinal;
 import org.apache.commons.codec.binary.Base64;
-import org.junit.*;
+import org.junit.jupiter.api.*;
 
 import java.io.IOException;
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.function.ToLongFunction;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Random;
 import java.util.stream.*;
 
 /**
@@ -24,22 +19,22 @@ import java.util.stream.*;
  * Date: 2018/08/29
  */
 public class JustTest {
-    @Before
-    public void setUp() throws Exception {
+    @BeforeEach
+    public void setUp() {
         System.out.println("steUp");
     }
 
-    @After
-    public void tearDown() throws Exception {
+    @AfterEach
+    public void tearDown() {
         System.out.println("tearDown");
     }
 
-    @BeforeClass
+    @BeforeAll
     public static void beforeClass() {
         System.out.println("beforeClass");
     }
 
-    @AfterClass
+    @AfterAll
     public static void afterClass() {
         System.out.println("afterClass");
     }
