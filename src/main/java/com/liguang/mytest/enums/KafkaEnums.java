@@ -18,6 +18,11 @@ public enum KafkaEnums {
         public void doSome() {
             System.out.println("BBB");
         }
+
+        @Override
+        public String go() {
+            return "我是BBB的ggo";
+        }
     };
 
     private String key;
@@ -28,5 +33,8 @@ public enum KafkaEnums {
 
     public void doSome() {
 
+    }
+    public String go(){
+        return "ABC";
     }
 }
