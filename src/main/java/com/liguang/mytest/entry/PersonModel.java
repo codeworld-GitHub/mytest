@@ -18,7 +18,7 @@ import java.math.BigDecimal;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class Person implements Serializable {
+public class PersonModel implements Serializable {
     private static final long serialVersionUID = -6336461603721866625L;
 
     private String id;
@@ -32,5 +32,5 @@ public class Person implements Serializable {
     private String count;
     private String total;
 
-    private BigDecimal totalPrice;
+    private String totalPrice;
 }

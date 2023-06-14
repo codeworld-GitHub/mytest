@@ -1,4 +1,4 @@
-package com.liguang.mytest.config;
+package com.liguang.mytest.properties;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

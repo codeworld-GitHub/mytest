@@ -4,6 +4,7 @@ import java.net.MalformedURLException;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
+import java.util.StringTokenizer;
 
 /**
  * Desc: note something here
@@ -17,6 +18,7 @@ public class OrderManagerServer {
             IOrderManager usermanagger = new OrderManager(); // RMI远程对象
             Naming.rebind("OrderManager", usermanagger); // 绑定RMI对象
             System.out.println("OrderManager is ready.");
+            StringTokenizer ss = new StringTokenizer("", "s");
         } catch (RemoteException | MalformedURLException e) {
             System.out.println("OrderManager Server failed:" + e);
         }
