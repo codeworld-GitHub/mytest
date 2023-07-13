@@ -6,12 +6,14 @@ import com.alibaba.fastjson.parser.ParserConfig;
 import com.alibaba.fastjson.parser.deserializer.FieldTypeResolver;
 import com.alibaba.fastjson.parser.deserializer.ParseProcess;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.liguang.mytest.entry.JsonPerson;
 import com.liguang.mytest.entry.Person;
 import com.liguang.mytest.entry.PersonModel;
 import com.liguang.mytest.enums.TestOrdinal;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.text.RandomStringGenerator;
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;
@@ -19,6 +21,7 @@ import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.*;
@@ -74,6 +77,8 @@ public class JustTest {
     public void testTryFinally() {
         Person person = this.getPerson();
         System.out.println(person);
+        Object o = Maps.<String, String>newHashMap().get(null);
+        System.out.println(o);
     }
 
     private Person getPerson() {
@@ -126,9 +131,8 @@ public class JustTest {
                 .mapToObj(idAndNameMap::get)
                 .collect(Collectors.joining("/"));
         System.out.println(collect);
-        if(Boolean.TRUE.equals(null)){
-
-        }
+        long l = Long.parseLong("123.00000000");
+        System.out.println(l);
     }
     @Test
     public void testJson(){
@@ -149,5 +153,12 @@ public class JustTest {
         String newStr = JSONObject.toJSONString(jsonPerson);
         jsonPerson = JSONObject.parseObject(newStr, JsonPerson.class);
         System.out.println(JSONObject.toJSONString(jsonPerson));
+
+        Map<String, Integer> collect = Lists.<Person>newArrayList().stream().collect(Collectors.toMap(Person::getId, Person::getAge));
+        System.out.println(collect);
+
+        RandomStringGenerator build = new RandomStringGenerator.Builder().withinRange('0', '9').build();
+        String generate = build.generate(6);
+        System.out.println(generate);
     }
 }

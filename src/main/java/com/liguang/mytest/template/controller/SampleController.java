@@ -7,11 +7,13 @@ import com.liguang.mytest.template.TemplateBizService;
 import com.liguang.mytest.template.mode.BaseBizResult;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,6 +32,9 @@ public class SampleController {
     @Resource
     private GtsProperties gtsProperties;
 
+    @Value("#{'${addedFlags:1,6,7,9}'.split(',')}")
+    private List<Integer> addedFlags;
+
     @GetMapping
     public Map<String, String> query(String id) {
         HashMap<String, String> map = Maps.newHashMap();
@@ -46,6 +51,7 @@ public class SampleController {
     public void getGtsProperteis() {
         log.info("gts:{}", gtsProperties.getCollina());
         log.info("gtsProperties:{}", JSON.toJSONString(gtsProperties));
+        System.out.println(addedFlags);
     }
 
 }
